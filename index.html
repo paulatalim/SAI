@@ -132,6 +132,27 @@
   .ce-table tr.fire.crit td.cet{color:var(--crit)}
   .ce-table tr.fire.crit td:first-child{box-shadow:inset 3px 0 0 var(--crit)}
   @media(max-width:760px){.ce-table th:nth-child(2),.ce-table td:nth-child(2){display:none}}
+  .synoptic{width:100%;height:auto;display:block}
+  .sy-pipe{fill:none;stroke:#aebccb;stroke-width:5;stroke-linecap:round}
+  .flow .sy-pipe{stroke:var(--blue)}
+  .sy-eq{fill:var(--panel-2);stroke:#7e91a5;stroke-width:2.2}
+  .sy-eq.on{stroke:var(--ok);fill:rgba(13,148,136,.09)}
+  .sy-eq.warn{stroke:var(--warn);fill:rgba(194,113,10,.10)}
+  .sy-eq.alarm{stroke:var(--alarm);fill:rgba(220,38,38,.10)}
+  .sy-acc{fill:none;stroke:#7e91a5;stroke-width:2}
+  .sy-eq.on .sy-acc{stroke:var(--ok)} .sy-eq.alarm .sy-acc{stroke:var(--alarm)} .sy-eq.warn .sy-acc{stroke:var(--warn)}
+  .sy-water{fill:rgba(37,99,235,.32);stroke:none}
+  .sy-tag{font-family:var(--mono);font-size:12px;font-weight:700;fill:var(--txt-label2);text-anchor:middle}
+  .sy-name{font-family:var(--sans);font-size:11.5px;font-weight:600;fill:var(--txt-strong);text-anchor:middle;text-transform:uppercase;letter-spacing:.03em}
+  .sy-sub{font-family:var(--sans);font-size:10px;fill:var(--txt-dim);text-anchor:middle}
+  .sy-state{font-family:var(--mono);font-size:11px;font-weight:700;fill:var(--txt-dim);text-anchor:middle}
+  .sy-state.on{fill:var(--ok)} .sy-state.warn{fill:var(--warn)} .sy-state.alarm{fill:var(--alarm)}
+  .sy-bub{fill:#fff;stroke:#7e91a5;stroke-width:2} .sy-bub.alarm{stroke:var(--alarm)}
+  .sy-bval{font-family:var(--mono);font-size:13px;font-weight:700;fill:var(--txt-strong);text-anchor:middle} .sy-bval.alarm{fill:var(--alarm)}
+  .sy-unit{font-family:var(--mono);font-size:9.5px;fill:var(--txt-dim);text-anchor:middle}
+  .sy-lead{stroke:#aebccb;stroke-width:1.5;stroke-dasharray:3 3;fill:none}
+  .lvl-ok{fill:rgba(37,99,235,.5);stroke:none} .lvl-lo{fill:rgba(220,38,38,.42);stroke:none} .lvl-hi{fill:rgba(194,113,10,.42);stroke:none}
+  .bottle{fill:#e3eaf2;stroke:#9aa9ba;stroke-width:1.2} .bottle.fill{fill:rgba(37,99,235,.42)}
   .foot{text-align:center;font-family:var(--mono);font-size:11.5px;color:var(--txt-dim);margin-top:24px;letter-spacing:.03em;line-height:1.6}
 </style>
 </head>
@@ -509,13 +530,106 @@ function buildStatic(){
   document.querySelectorAll('.fault').forEach(b=>b.onclick=()=>{S.f[b.dataset.f]=!S.f[b.dataset.f];b.classList.toggle('active',S.f[b.dataset.f]);});
   $('stcode').innerHTML=ST.map(b=>`<div class="strule" id="st-${b.id}">${hl(b.code)}</div>`).join('');
   $('mimic').innerHTML=`
-    <div class="node"><div class="inst" id="i-FIT101"><b>0.0</b>FIT-101 m³/h</div><div class="nbox" id="n-cap"><div class="ntag">Captação</div><div class="nname">Poço</div></div><span class="arrow">▶</span></div>
-    <div class="node"><div class="inst" id="i-PIT102"><b>0.0</b>PIT-102 bar</div><div class="nbox" id="n-pump"><div class="ntag">P-301</div><div class="nname">Bomba</div><div class="nstate" id="ns-pump">—</div></div><span class="arrow">▶</span></div>
-    <div class="node"><div class="inst">LIT-103</div><div class="nbox" id="n-res" style="padding:0;border:none;background:none"><div style="border:1.5px solid var(--line);border-bottom:none;border-radius:5px 5px 0 0;padding:6px 0;text-align:center"><div class="ntag">Reservatório</div></div><div class="tank"><div class="fill" id="res-fill"></div><div class="lvl" id="res-lvl">60%</div></div></div><span class="arrow">▶</span></div>
-    <div class="node"><div class="inst" id="i-DIT107"><b>0.5</b>DIT-107 NTU</div><div class="nbox" id="n-filt"><div class="ntag">Filtros</div><div class="nname">Areia·Carvão</div></div><span class="arrow">▶</span></div>
-    <div class="node"><div class="inst" id="i-TIT104"><b>22</b>TIT-104 °C</div><div class="nbox" id="n-uv"><div class="ntag">UV-501</div><div class="nname">UV / Ozônio</div><div class="nstate" id="ns-uv">—</div></div><span class="arrow">▶</span></div>
-    <div class="node"><div class="inst" id="i-XV401"><b>—</b>XV-401</div><div class="nbox" id="n-tank"><div class="ntag">Tanque</div><div class="nname">Água Tratada</div></div><span class="arrow">▶</span></div>
-    <div class="node"><div class="inst" id="i-FIT108"><b>0.0</b>FIT-108 m³/h</div><div class="nbox" id="n-fill"><div class="ntag">M-201</div><div class="nname">Envase</div><div class="nstate" id="ns-fill">—</div></div></div>`;
+  <svg class="synoptic" viewBox="0 0 1180 350" xmlns="http://www.w3.org/2000/svg">
+    <!-- ===== TUBULAÇÃO PRINCIPAL ===== -->
+    <g id="pipe-in">
+      <path class="sy-pipe" d="M104 150 H150"/>
+      <path class="sy-pipe" d="M194 150 H266"/>
+      <path class="sy-pipe" d="M346 150 H392"/>
+      <path class="sy-pipe" d="M528 150 H656"/>
+      <path class="sy-pipe" d="M776 150 H834"/>
+      <path class="sy-pipe" d="M874 150 H916"/>
+    </g>
+    <g id="pipe-out"><path class="sy-pipe" d="M956 214 V262 H910"/></g>
+
+    <!-- ===== CAPTAÇÃO ===== -->
+    <g class="sy-eq"><rect x="26" y="112" width="78" height="74" rx="6"/></g>
+    <rect class="sy-water" x="29" y="150" width="72" height="33"/>
+    <path class="sy-acc" d="M31 150 q9 -7 18 0 t18 0 t18 0"/>
+    <text class="sy-tag" x="65" y="104">CAPTAÇÃO</text>
+    <text class="sy-sub" x="65" y="202">Poço artesiano</text>
+
+    <!-- ===== BOMBA P-301 ===== -->
+    <g id="sym-pump" class="sy-eq"><circle cx="172" cy="150" r="22"/><path class="sy-acc" d="M164 138 L190 150 L164 162 Z"/></g>
+    <text class="sy-tag" x="172" y="196">P-301</text>
+    <text class="sy-name" x="172" y="210">Bomba</text>
+    <text id="t-pump" class="sy-state" x="172" y="224">STOP</text>
+
+    <!-- ===== RESERVATÓRIO BRUTO ===== -->
+    <g class="sy-eq">
+      <ellipse cx="306" cy="96" rx="40" ry="8"/>
+      <path d="M266 96 V210 a40 8 0 0 0 80 0 V96" />
+    </g>
+    <rect id="res-fill" class="lvl-ok" x="269" y="155" width="74" height="55"/>
+    <ellipse class="sy-eq" cx="306" cy="96" rx="40" ry="8" style="fill:var(--panel-2)"/>
+    <text id="res-lvl" class="sy-bval" x="306" y="156">60%</text>
+    <text class="sy-tag" x="306" y="240">LIT-103</text>
+    <text class="sy-name" x="306" y="254">Reservatório</text>
+
+    <!-- ===== FILTROS ===== -->
+    <g id="sym-filt" class="sy-eq">
+      <path d="M396 122 a18 6 0 0 1 36 0 V196 a18 6 0 0 1 -36 0 Z"/>
+      <path d="M442 122 a18 6 0 0 1 36 0 V196 a18 6 0 0 1 -36 0 Z"/>
+      <path d="M488 122 a18 6 0 0 1 36 0 V196 a18 6 0 0 1 -36 0 Z"/>
+      <path class="sy-acc" d="M400 160 q9 -8 18 0 t12 0"/>
+      <path class="sy-acc" d="M446 160 q9 -8 18 0 t12 0"/>
+      <path class="sy-acc" d="M492 160 q9 -8 18 0 t12 0"/>
+      <path class="sy-pipe" style="stroke-width:4" d="M432 150 H442 M478 150 H488"/>
+    </g>
+    <text class="sy-name" x="460" y="216">Filtros</text>
+    <text class="sy-sub" x="460" y="230">Areia · Carvão · Micrônico</text>
+
+    <!-- ===== UV-501 ===== -->
+    <g id="sym-uv" class="sy-eq">
+      <rect x="656" y="128" width="120" height="44" rx="10"/>
+      <polyline class="sy-acc" points="670,150 686,138 702,162 718,138 734,162 750,138 762,150"/>
+    </g>
+    <text class="sy-tag" x="716" y="192">UV-501</text>
+    <text class="sy-name" x="716" y="206">Esterilização UV</text>
+    <text id="t-uv" class="sy-state" x="716" y="220">DESL</text>
+
+    <!-- ===== VÁLVULA XV-401 ===== -->
+    <g id="sym-valve" class="sy-eq">
+      <path d="M834 138 L834 162 L854 150 Z"/>
+      <path d="M874 138 L874 162 L854 150 Z"/>
+      <line class="sy-acc" x1="854" y1="150" x2="854" y2="124"/>
+      <rect x="841" y="110" width="26" height="14" rx="3"/>
+    </g>
+    <text class="sy-tag" x="854" y="186">XV-401</text>
+    <text id="t-valve" class="sy-state" x="854" y="200">FECHADA</text>
+
+    <!-- ===== TANQUE ÁGUA TRATADA ===== -->
+    <g class="sy-eq">
+      <ellipse cx="956" cy="96" rx="40" ry="8"/>
+      <path d="M916 96 V210 a40 8 0 0 0 80 0 V96"/>
+    </g>
+    <rect class="lvl-ok" x="919" y="120" width="74" height="90"/>
+    <ellipse class="sy-eq" cx="956" cy="96" rx="40" ry="8" style="fill:var(--panel-2)"/>
+    <text class="sy-tag" x="956" y="240">TANQUE</text>
+    <text class="sy-name" x="956" y="254">Água tratada</text>
+
+    <!-- ===== ENVASE M-201 ===== -->
+    <line class="sy-pipe" style="stroke-width:4" x1="910" y1="262" x2="910" y2="280"/>
+    <g id="sym-conv" class="sy-eq">
+      <rect x="690" y="306" width="320" height="13" rx="6"/>
+      <circle cx="712" cy="326" r="7"/><circle cx="772" cy="326" r="7"/><circle cx="832" cy="326" r="7"/><circle cx="892" cy="326" r="7"/><circle cx="952" cy="326" r="7"/>
+      <line class="sy-acc" x1="896" y1="280" x2="896" y2="294"/><line class="sy-acc" x1="910" y1="280" x2="910" y2="294"/><line class="sy-acc" x1="924" y1="280" x2="924" y2="294"/>
+      <line class="sy-acc" x1="884" y1="280" x2="936" y2="280"/>
+    </g>
+    <g id="bot-0" class="bottle"><rect x="724" y="288" width="14" height="18" rx="2"/><rect x="728" y="282" width="6" height="7" rx="1"/></g>
+    <g id="bot-1" class="bottle"><rect x="784" y="288" width="14" height="18" rx="2"/><rect x="788" y="282" width="6" height="7" rx="1"/></g>
+    <g id="bot-2" class="bottle"><rect x="844" y="288" width="14" height="18" rx="2"/><rect x="848" y="282" width="6" height="7" rx="1"/></g>
+    <g id="bot-3" class="bottle"><rect x="904" y="288" width="14" height="18" rx="2"/><rect x="908" y="282" width="6" height="7" rx="1"/></g>
+    <text class="sy-tag" x="820" y="342">M-201 · Esteira de envase</text>
+    <text id="t-conv" class="sy-state" x="990" y="300" style="text-anchor:end">PARADO</text>
+
+    <!-- ===== BALÕES DE INSTRUMENTAÇÃO ===== -->
+    <g><line class="sy-lead" x1="127" y1="111" x2="127" y2="150"/><text class="sy-tag" x="127" y="72">FIT-101</text><circle id="b-FIT101" class="sy-bub" cx="127" cy="92" r="18"/><text id="v-FIT101" class="sy-bval" x="127" y="97">0.0</text><text class="sy-unit" x="127" y="124">m³/h</text></g>
+    <g><line class="sy-lead" x1="230" y1="111" x2="230" y2="150"/><text class="sy-tag" x="230" y="72">PIT-102</text><circle id="b-PIT102" class="sy-bub" cx="230" cy="92" r="18"/><text id="v-PIT102" class="sy-bval" x="230" y="97">0.0</text><text class="sy-unit" x="230" y="124">bar</text></g>
+    <g><line class="sy-lead" x1="560" y1="111" x2="560" y2="150"/><text class="sy-tag" x="560" y="72">DIT-107</text><circle id="b-DIT107" class="sy-bub" cx="560" cy="92" r="18"/><text id="v-DIT107" class="sy-bval" x="560" y="97">0.5</text><text class="sy-unit" x="560" y="124">NTU</text></g>
+    <g><line class="sy-lead" x1="624" y1="111" x2="624" y2="150"/><text class="sy-tag" x="624" y="72">TIT-104</text><circle id="b-TIT104" class="sy-bub" cx="624" cy="92" r="18"/><text id="v-TIT104" class="sy-bval" x="624" y="97">22</text><text class="sy-unit" x="624" y="124">°C</text></g>
+    <g><line class="sy-lead" x1="1018" y1="252" x2="956" y2="252"/><text class="sy-tag" x="1052" y="232">FIT-108</text><circle id="b-FIT108" class="sy-bub" cx="1052" cy="252" r="18"/><text id="v-FIT108" class="sy-bval" x="1052" y="257">0.0</text><text class="sy-unit" x="1052" y="284">m³/h</text></g>
+  </svg>`;
 }
 
 function render(){
@@ -553,23 +667,31 @@ function render(){
 
   for(let i=0;i<CE.length;i++){const f=CE[i].fire();$('ce-'+i).className=f?(CE[i].prio==='Crítica'?'fire crit':'fire'):'';}
 
-  const cls=(id,c)=>{$(id).className='nbox'+(c?' '+c:'');};
-  cls('n-pump',o.P301?'on':(S.flags.VAZAO?'alarm':''));$('ns-pump').textContent=o.P301?'RUN':'STOP';
-  cls('n-uv',S.f.falhaUV?'alarm':o.UV501?'on':'');$('ns-uv').textContent=S.f.falhaUV?'FALHA':o.UV501?'ON':'OFF';
-  cls('n-fill',o.M201&&S.pv.FIT108>0.1?'on':(S.running&&!o.M201?'warn':''));$('ns-fill').textContent=S.pv.FIT108>0.1?'ENVASANDO':(S.running&&!o.M201?'BLOQ':'PARADO');
-  cls('n-filt',S.pv.DIT107>LIM.TURB_MAX?'alarm':'');
-  const ir=(id,val,bad)=>{const e=$(id);e.className='inst'+(bad?' alarm':'');e.querySelector('b').textContent=val;};
-  ir('i-FIT101',fmt(S.pv.FIT101,1),o.P301&&S.pv.FIT101<10);
-  ir('i-PIT102',fmt(S.pv.PIT102,1),S.pv.PIT102>6);
-  ir('i-DIT107',fmt(S.pv.DIT107,1),S.pv.DIT107>5);
-  ir('i-TIT104',fmt(S.pv.TIT104,0),S.pv.TIT104>35);
-  ir('i-FIT108',fmt(S.pv.FIT108,1),false);
-  $('i-XV401').querySelector('b').textContent=o.XV401?'ABERTA':'FECH.';
-  $('i-XV401').className='inst'+(!o.XV401&&S.running?' alarm':'');
-  $('res-fill').style.height=S.pv.LIT103+'%';
-  $('res-lvl').textContent=fmt(S.pv.LIT103,0)+'%';
-  const lo=S.pv.LIT103<20,hi=S.pv.LIT103>95;
-  $('res-fill').style.background=lo?'linear-gradient(180deg,rgba(255,77,94,.55),rgba(255,77,94,.25))':hi?'linear-gradient(180deg,rgba(245,166,35,.55),rgba(245,166,35,.25))':'linear-gradient(180deg,rgba(74,158,255,.55),rgba(74,158,255,.25))';
+  // ===== SINÓTICO =====
+  const scl=(id,c)=>{const e=$(id);if(e)e.setAttribute('class',c);};
+  const stx=(id,t)=>{const e=$(id);if(e)e.textContent=t;};
+  scl('pipe-in', (o.P301||S.pv.FIT101>0.2)?'flow':'');
+  scl('pipe-out', S.pv.FIT108>0.2?'flow':'');
+  scl('sym-pump','sy-eq '+(o.P301?'on':(S.flags.VAZAO?'alarm':'')));
+  stx('t-pump',o.P301?'RUN':'STOP'); scl('t-pump','sy-state '+(o.P301?'on':(S.flags.VAZAO?'alarm':'')));
+  scl('sym-filt','sy-eq '+(S.pv.DIT107>LIM.TURB_MAX?'alarm':''));
+  scl('sym-uv','sy-eq '+(S.f.falhaUV?'alarm':(o.UV501?'on':'')));
+  stx('t-uv',S.f.falhaUV?'FALHA':(o.UV501?'LIGADO':'DESL')); scl('t-uv','sy-state '+(S.f.falhaUV?'alarm':(o.UV501?'on':'')));
+  scl('sym-valve','sy-eq '+(!o.XV401&&S.running?'alarm':(o.XV401?'on':'')));
+  stx('t-valve',o.XV401?'ABERTA':'FECHADA'); scl('t-valve','sy-state '+(!o.XV401&&S.running?'alarm':(o.XV401?'on':'')));
+  const env=S.pv.FIT108>0.1, blq=S.running&&!o.M201;
+  scl('sym-conv','sy-eq '+(env?'on':(blq?'warn':'')));
+  stx('t-conv',env?'ENVASANDO':(blq?'BLOQUEADO':'PARADO')); scl('t-conv','sy-state '+(env?'on':(blq?'warn':'')));
+  for(let i=0;i<4;i++)scl('bot-'+i,'bottle'+(env?' fill':''));
+  const lo=S.pv.LIT103<20,hi=S.pv.LIT103>95,iT=100,iB=210,iH=iB-iT,fh=iH*S.pv.LIT103/100;
+  const rf=$('res-fill'); if(rf){rf.setAttribute('y',(iB-fh).toFixed(1));rf.setAttribute('height',Math.max(0,fh).toFixed(1));rf.setAttribute('class',lo?'lvl-lo':hi?'lvl-hi':'lvl-ok');}
+  stx('res-lvl',fmt(S.pv.LIT103,0)+'%');
+  const ib=(tag,val,bad)=>{stx('v-'+tag,val);scl('b-'+tag,'sy-bub'+(bad?' alarm':''));scl('v-'+tag,'sy-bval'+(bad?' alarm':''));};
+  ib('FIT101',fmt(S.pv.FIT101,1),o.P301&&S.pv.FIT101<10);
+  ib('PIT102',fmt(S.pv.PIT102,1),S.pv.PIT102>6);
+  ib('DIT107',fmt(S.pv.DIT107,1),S.pv.DIT107>5);
+  ib('TIT104',fmt(S.pv.TIT104,0),S.pv.TIT104>35);
+  ib('FIT108',fmt(S.pv.FIT108,1),false);
 }
 
 /* ===== LOOP ===== */
