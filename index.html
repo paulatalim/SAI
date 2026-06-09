@@ -165,6 +165,7 @@
   <div id="statusChip" class="status-chip s-stop"><span class="dot"></span><span id="statusTxt">PARADA</span></div>
   <button id="btnRun" class="btn run">▶ Energizar</button>
   <button id="btnStop" class="btn stop">■ Parar</button>
+  <button id="btnArm" class="btn">⟲ Rearmar</button>
   <button id="btnReset" class="btn reset">↻ Reset</button>
   <div class="clock"><b id="clk">00:00</b>tempo de planta</div>
 </header>
@@ -190,7 +191,7 @@
       <section class="panel">
         <div class="ph"><span class="t">Console do Operador</span><span class="meta">injeção de distúrbios</span></div>
         <div class="pb">
-          <div class="hint">Bomba, esteira, válvula e UV são acionados automaticamente pela lógica do CLP. Energize a planta e injete uma condição de falha para observar a ação automática e o alarme.</div>
+          <div class="hint">Bomba, esteira, válvula e UV são acionados automaticamente pela lógica do CLP. Energize a planta e injete uma falha para ver a ação automática e o alarme. Um trip fica travado: remova a falha e use Rearmar para retomar.</div>
           <div class="toggles" id="faults"></div>
         </div>
       </section>
@@ -218,7 +219,7 @@
       </table>
     </div>
   </section>
-  <div class="foot">Simulador didático · Sistemas de Automação Industrial<br>guardas de simulação: proteção de vazão considera a bomba em operação · XV-401 abre ao energizar</div>
+  <div class="foot">Simulador didático · Sistemas de Automação Industrial<br>guardas de simulação: trip travado com rearme manual · proteção de vazão considera a bomba em operação · XV-401 abre ao energizar</div>
 </div>
 
 <script>
@@ -246,32 +247,32 @@ function scan(){
     return;
   }
   const prevP301=o.P301;
-  fl.UV = S.f.falhaUV;          // FALHA_UV ← entrada digital de status do sistema UV
+  if(S.f.falhaUV) fl.UV=true;    // FALHA_UV ← entrada digital de status do UV (travada)
   o.XV401 = true;               // [guarda] válvula abre ao energizar (linha ausente no código original)
 
   // CONTROLE DO NÍVEL DO RESERVATÓRIO
   if(pv.LIT103 < 80.0) o.P301 = true;
   if(pv.LIT103 > L.NIVEL_MAX) o.P301 = false;
 
-  // PROTEÇÃO DE BAIXA VAZÃO ([guarda] prevP301: bomba já em operação)
-  if(prevP301 && pv.FIT101 < L.VAZAO_MIN){ fl.VAZAO=true; o.P301=false; o.ALARME=true; }
-  else fl.VAZAO=false;
+  // PROTEÇÃO DE BAIXA VAZÃO ([guarda] prevP301: bomba já em operação · trip travado)
+  if(prevP301 && pv.FIT101 < L.VAZAO_MIN) fl.VAZAO=true;
+  if(fl.VAZAO){ o.P301=false; o.ALARME=true; }
 
-  // PROTEÇÃO DE PRESSÃO
-  if(pv.PIT102 > L.PRESSAO_MAX){ fl.PRESSAO=true; o.XV401=false; o.ALARME=true; }
-  else fl.PRESSAO=false;
+  // PROTEÇÃO DE PRESSÃO (trip travado)
+  if(pv.PIT102 > L.PRESSAO_MAX) fl.PRESSAO=true;
+  if(fl.PRESSAO){ o.XV401=false; o.ALARME=true; }
 
-  // CONTROLE DE pH
-  if(pv.AIT106 < L.PH_MIN || pv.AIT106 > L.PH_MAX){ fl.PH=true; o.M201=false; o.XV401=false; o.ALARME=true; }
-  else fl.PH=false;
+  // CONTROLE DE pH (trip travado)
+  if(pv.AIT106 < L.PH_MIN || pv.AIT106 > L.PH_MAX) fl.PH=true;
+  if(fl.PH){ o.M201=false; o.XV401=false; o.ALARME=true; }
 
-  // CONTROLE DE CONDUTIVIDADE
-  if(pv.AIT105 > L.COND_MAX){ fl.COND=true; o.M201=false; o.XV401=false; o.ALARME=true; }
-  else fl.COND=false;
+  // CONTROLE DE CONDUTIVIDADE (trip travado)
+  if(pv.AIT105 > L.COND_MAX) fl.COND=true;
+  if(fl.COND){ o.M201=false; o.XV401=false; o.ALARME=true; }
 
-  // CONTROLE DE TURBIDEZ
-  if(pv.DIT107 > L.TURB_MAX){ fl.TURB=true; o.P301=false; o.XV401=false; o.M201=false; o.ALARME=true; }
-  else fl.TURB=false;
+  // CONTROLE DE TURBIDEZ (trip travado)
+  if(pv.DIT107 > L.TURB_MAX) fl.TURB=true;
+  if(fl.TURB){ o.P301=false; o.XV401=false; o.M201=false; o.ALARME=true; }
 
   // CONTROLE DE TEMPERATURA
   if(pv.TIT104 > L.TEMP_MAX) o.UV501=true;
@@ -282,11 +283,8 @@ function scan(){
   // SISTEMA UV
   o.UV501 = o.M201 ? true : false;
 
-  // INTERTRAVAMENTO GERAL
+  // INTERTRAVAMENTO GERAL (travado até rearme manual)
   if(fl.VAZAO||fl.PRESSAO||fl.PH||fl.COND||fl.TURB||fl.UV){ o.P301=false; o.M201=false; o.XV401=false; o.ALARME=true; }
-
-  // RESET DE ALARME
-  if(!fl.VAZAO&&!fl.PRESSAO&&!fl.PH&&!fl.COND&&!fl.TURB) o.ALARME=false;
 }
 const anyFault=()=>{const f=S.flags;return f.VAZAO||f.PRESSAO||f.PH||f.COND||f.TURB||f.UV;};
 
@@ -530,105 +528,100 @@ function buildStatic(){
   document.querySelectorAll('.fault').forEach(b=>b.onclick=()=>{S.f[b.dataset.f]=!S.f[b.dataset.f];b.classList.toggle('active',S.f[b.dataset.f]);});
   $('stcode').innerHTML=ST.map(b=>`<div class="strule" id="st-${b.id}">${hl(b.code)}</div>`).join('');
   $('mimic').innerHTML=`
-  <svg class="synoptic" viewBox="0 0 1180 350" xmlns="http://www.w3.org/2000/svg">
+  <svg class="synoptic" viewBox="0 0 1280 362" xmlns="http://www.w3.org/2000/svg">
     <!-- ===== TUBULAÇÃO PRINCIPAL ===== -->
     <g id="pipe-in">
-      <path class="sy-pipe" d="M104 150 H150"/>
-      <path class="sy-pipe" d="M194 150 H266"/>
-      <path class="sy-pipe" d="M346 150 H392"/>
-      <path class="sy-pipe" d="M528 150 H656"/>
-      <path class="sy-pipe" d="M776 150 H834"/>
-      <path class="sy-pipe" d="M874 150 H916"/>
+      <path class="sy-pipe" d="M104 150 H153"/>
+      <path class="sy-pipe" d="M199 150 H274"/>
+      <path class="sy-pipe" d="M358 150 H404"/>
+      <path class="sy-pipe" d="M534 150 H744"/>
+      <path class="sy-pipe" d="M864 150 H904"/>
+      <path class="sy-pipe" d="M944 150 H984"/>
     </g>
-    <g id="pipe-out"><path class="sy-pipe" d="M956 214 V262 H910"/></g>
+    <g id="pipe-out"><path class="sy-pipe" d="M1026 210 V262"/></g>
 
     <!-- ===== CAPTAÇÃO ===== -->
-    <g class="sy-eq"><rect x="26" y="112" width="78" height="74" rx="6"/></g>
-    <rect class="sy-water" x="29" y="150" width="72" height="33"/>
-    <path class="sy-acc" d="M31 150 q9 -7 18 0 t18 0 t18 0"/>
-    <text class="sy-tag" x="65" y="104">CAPTAÇÃO</text>
-    <text class="sy-sub" x="65" y="202">Poço artesiano</text>
+    <g class="sy-eq"><rect x="24" y="112" width="80" height="74" rx="6"/></g>
+    <rect class="sy-water" x="27" y="150" width="74" height="33"/>
+    <path class="sy-acc" d="M29 150 q9 -7 18 0 t18 0 t18 0"/>
+    <text class="sy-tag" x="64" y="104">CAPTAÇÃO</text>
+    <text class="sy-sub" x="64" y="202">Poço artesiano</text>
 
     <!-- ===== BOMBA P-301 ===== -->
-    <g id="sym-pump" class="sy-eq"><circle cx="172" cy="150" r="22"/><path class="sy-acc" d="M164 138 L190 150 L164 162 Z"/></g>
-    <text class="sy-tag" x="172" y="196">P-301</text>
-    <text class="sy-name" x="172" y="210">Bomba</text>
-    <text id="t-pump" class="sy-state" x="172" y="224">STOP</text>
+    <g id="sym-pump" class="sy-eq"><circle cx="176" cy="150" r="23"/><path class="sy-acc" d="M167 137 L196 150 L167 163 Z"/></g>
+    <text class="sy-tag" x="176" y="196">P-301</text>
+    <text class="sy-name" x="176" y="210">Bomba</text>
+    <text id="t-pump" class="sy-state" x="176" y="224">STOP</text>
 
     <!-- ===== RESERVATÓRIO BRUTO ===== -->
-    <g class="sy-eq">
-      <ellipse cx="306" cy="96" rx="40" ry="8"/>
-      <path d="M266 96 V210 a40 8 0 0 0 80 0 V96" />
-    </g>
-    <rect id="res-fill" class="lvl-ok" x="269" y="155" width="74" height="55"/>
-    <ellipse class="sy-eq" cx="306" cy="96" rx="40" ry="8" style="fill:var(--panel-2)"/>
-    <text id="res-lvl" class="sy-bval" x="306" y="156">60%</text>
-    <text class="sy-tag" x="306" y="240">LIT-103</text>
-    <text class="sy-name" x="306" y="254">Reservatório</text>
+    <g class="sy-eq"><ellipse cx="316" cy="96" rx="42" ry="8"/><path d="M274 96 V210 a42 8 0 0 0 84 0 V96"/></g>
+    <rect id="res-fill" class="lvl-ok" x="277" y="155" width="78" height="55"/>
+    <ellipse class="sy-eq" cx="316" cy="96" rx="42" ry="8" style="fill:var(--panel-2)"/>
+    <text id="res-lvl" class="sy-bval" x="316" y="156">60%</text>
+    <text class="sy-tag" x="316" y="240">LIT-103</text>
+    <text class="sy-name" x="316" y="254">Reservatório</text>
 
     <!-- ===== FILTROS ===== -->
     <g id="sym-filt" class="sy-eq">
-      <path d="M396 122 a18 6 0 0 1 36 0 V196 a18 6 0 0 1 -36 0 Z"/>
-      <path d="M442 122 a18 6 0 0 1 36 0 V196 a18 6 0 0 1 -36 0 Z"/>
-      <path d="M488 122 a18 6 0 0 1 36 0 V196 a18 6 0 0 1 -36 0 Z"/>
-      <path class="sy-acc" d="M400 160 q9 -8 18 0 t12 0"/>
-      <path class="sy-acc" d="M446 160 q9 -8 18 0 t12 0"/>
-      <path class="sy-acc" d="M492 160 q9 -8 18 0 t12 0"/>
-      <path class="sy-pipe" style="stroke-width:4" d="M432 150 H442 M478 150 H488"/>
+      <path d="M406 120 a17 6 0 0 1 34 0 V196 a17 6 0 0 1 -34 0 Z"/>
+      <path d="M452 120 a17 6 0 0 1 34 0 V196 a17 6 0 0 1 -34 0 Z"/>
+      <path d="M498 120 a17 6 0 0 1 34 0 V196 a17 6 0 0 1 -34 0 Z"/>
+      <path class="sy-acc" d="M410 158 q8 -8 17 0 t11 0"/>
+      <path class="sy-acc" d="M456 158 q8 -8 17 0 t11 0"/>
+      <path class="sy-acc" d="M502 158 q8 -8 17 0 t11 0"/>
+      <path class="sy-pipe" style="stroke-width:4" d="M440 150 H452 M486 150 H498"/>
     </g>
-    <text class="sy-name" x="460" y="216">Filtros</text>
-    <text class="sy-sub" x="460" y="230">Areia · Carvão · Micrônico</text>
+    <text class="sy-name" x="469" y="216">Filtros</text>
+    <text class="sy-sub" x="469" y="230">Areia · Carvão · Micrônico</text>
 
     <!-- ===== UV-501 ===== -->
     <g id="sym-uv" class="sy-eq">
-      <rect x="656" y="128" width="120" height="44" rx="10"/>
-      <polyline class="sy-acc" points="670,150 686,138 702,162 718,138 734,162 750,138 762,150"/>
+      <rect x="744" y="128" width="120" height="44" rx="10"/>
+      <polyline class="sy-acc" points="758,150 774,138 790,162 806,138 822,162 838,138 850,150"/>
     </g>
-    <text class="sy-tag" x="716" y="192">UV-501</text>
-    <text class="sy-name" x="716" y="206">Esterilização UV</text>
-    <text id="t-uv" class="sy-state" x="716" y="220">DESL</text>
+    <text class="sy-tag" x="804" y="192">UV-501</text>
+    <text class="sy-name" x="804" y="206">Esterilização UV</text>
+    <text id="t-uv" class="sy-state" x="804" y="220">DESL</text>
 
     <!-- ===== VÁLVULA XV-401 ===== -->
     <g id="sym-valve" class="sy-eq">
-      <path d="M834 138 L834 162 L854 150 Z"/>
-      <path d="M874 138 L874 162 L854 150 Z"/>
-      <line class="sy-acc" x1="854" y1="150" x2="854" y2="124"/>
-      <rect x="841" y="110" width="26" height="14" rx="3"/>
+      <path d="M904 138 L904 162 L924 150 Z"/>
+      <path d="M944 138 L944 162 L924 150 Z"/>
+      <line class="sy-acc" x1="924" y1="150" x2="924" y2="124"/>
+      <rect x="911" y="110" width="26" height="14" rx="3"/>
     </g>
-    <text class="sy-tag" x="854" y="186">XV-401</text>
-    <text id="t-valve" class="sy-state" x="854" y="200">FECHADA</text>
+    <text class="sy-tag" x="924" y="186">XV-401</text>
+    <text id="t-valve" class="sy-state" x="924" y="200">FECHADA</text>
 
     <!-- ===== TANQUE ÁGUA TRATADA ===== -->
-    <g class="sy-eq">
-      <ellipse cx="956" cy="96" rx="40" ry="8"/>
-      <path d="M916 96 V210 a40 8 0 0 0 80 0 V96"/>
-    </g>
-    <rect class="lvl-ok" x="919" y="120" width="74" height="90"/>
-    <ellipse class="sy-eq" cx="956" cy="96" rx="40" ry="8" style="fill:var(--panel-2)"/>
-    <text class="sy-tag" x="956" y="240">TANQUE</text>
-    <text class="sy-name" x="956" y="254">Água tratada</text>
+    <g class="sy-eq"><ellipse cx="1026" cy="96" rx="42" ry="8"/><path d="M984 96 V210 a42 8 0 0 0 84 0 V96"/></g>
+    <rect class="lvl-ok" x="987" y="120" width="78" height="90"/>
+    <ellipse class="sy-eq" cx="1026" cy="96" rx="42" ry="8" style="fill:var(--panel-2)"/>
+    <text class="sy-tag" x="1026" y="240">TANQUE</text>
+    <text class="sy-name" x="1026" y="254">Água tratada</text>
 
     <!-- ===== ENVASE M-201 ===== -->
-    <line class="sy-pipe" style="stroke-width:4" x1="910" y1="262" x2="910" y2="280"/>
     <g id="sym-conv" class="sy-eq">
-      <rect x="690" y="306" width="320" height="13" rx="6"/>
-      <circle cx="712" cy="326" r="7"/><circle cx="772" cy="326" r="7"/><circle cx="832" cy="326" r="7"/><circle cx="892" cy="326" r="7"/><circle cx="952" cy="326" r="7"/>
-      <line class="sy-acc" x1="896" y1="280" x2="896" y2="294"/><line class="sy-acc" x1="910" y1="280" x2="910" y2="294"/><line class="sy-acc" x1="924" y1="280" x2="924" y2="294"/>
-      <line class="sy-acc" x1="884" y1="280" x2="936" y2="280"/>
+      <rect x="760" y="306" width="340" height="13" rx="6"/>
+      <circle cx="784" cy="326" r="7"/><circle cx="846" cy="326" r="7"/><circle cx="908" cy="326" r="7"/><circle cx="970" cy="326" r="7"/><circle cx="1032" cy="326" r="7"/><circle cx="1086" cy="326" r="7"/>
+      <line class="sy-acc" x1="1010" y1="262" x2="1010" y2="294"/><line class="sy-acc" x1="1026" y1="262" x2="1026" y2="294"/><line class="sy-acc" x1="1042" y1="262" x2="1042" y2="294"/>
+      <line class="sy-acc" x1="1004" y1="262" x2="1048" y2="262"/>
     </g>
-    <g id="bot-0" class="bottle"><rect x="724" y="288" width="14" height="18" rx="2"/><rect x="728" y="282" width="6" height="7" rx="1"/></g>
-    <g id="bot-1" class="bottle"><rect x="784" y="288" width="14" height="18" rx="2"/><rect x="788" y="282" width="6" height="7" rx="1"/></g>
-    <g id="bot-2" class="bottle"><rect x="844" y="288" width="14" height="18" rx="2"/><rect x="848" y="282" width="6" height="7" rx="1"/></g>
-    <g id="bot-3" class="bottle"><rect x="904" y="288" width="14" height="18" rx="2"/><rect x="908" y="282" width="6" height="7" rx="1"/></g>
-    <text class="sy-tag" x="820" y="342">M-201 · Esteira de envase</text>
-    <text id="t-conv" class="sy-state" x="990" y="300" style="text-anchor:end">PARADO</text>
+    <g id="bot-0" class="bottle"><rect x="804" y="288" width="14" height="18" rx="2"/><rect x="808" y="282" width="6" height="7" rx="1"/></g>
+    <g id="bot-1" class="bottle"><rect x="864" y="288" width="14" height="18" rx="2"/><rect x="868" y="282" width="6" height="7" rx="1"/></g>
+    <g id="bot-2" class="bottle"><rect x="924" y="288" width="14" height="18" rx="2"/><rect x="928" y="282" width="6" height="7" rx="1"/></g>
+    <g id="bot-3" class="bottle"><rect x="984" y="288" width="14" height="18" rx="2"/><rect x="988" y="282" width="6" height="7" rx="1"/></g>
+    <text class="sy-tag" x="900" y="344">M-201 · Esteira de envase</text>
+    <text id="t-conv" class="sy-state" x="1095" y="300" style="text-anchor:end">PARADO</text>
 
-    <!-- ===== BALÕES DE INSTRUMENTAÇÃO ===== -->
-    <g><line class="sy-lead" x1="127" y1="111" x2="127" y2="150"/><text class="sy-tag" x="127" y="72">FIT-101</text><circle id="b-FIT101" class="sy-bub" cx="127" cy="92" r="18"/><text id="v-FIT101" class="sy-bval" x="127" y="97">0.0</text><text class="sy-unit" x="127" y="124">m³/h</text></g>
-    <g><line class="sy-lead" x1="230" y1="111" x2="230" y2="150"/><text class="sy-tag" x="230" y="72">PIT-102</text><circle id="b-PIT102" class="sy-bub" cx="230" cy="92" r="18"/><text id="v-PIT102" class="sy-bval" x="230" y="97">0.0</text><text class="sy-unit" x="230" y="124">bar</text></g>
-    <g><line class="sy-lead" x1="560" y1="111" x2="560" y2="150"/><text class="sy-tag" x="560" y="72">DIT-107</text><circle id="b-DIT107" class="sy-bub" cx="560" cy="92" r="18"/><text id="v-DIT107" class="sy-bval" x="560" y="97">0.5</text><text class="sy-unit" x="560" y="124">NTU</text></g>
-    <g><line class="sy-lead" x1="624" y1="111" x2="624" y2="150"/><text class="sy-tag" x="624" y="72">TIT-104</text><circle id="b-TIT104" class="sy-bub" cx="624" cy="92" r="18"/><text id="v-TIT104" class="sy-bval" x="624" y="97">22</text><text class="sy-unit" x="624" y="124">°C</text></g>
-    <g><line class="sy-lead" x1="1018" y1="252" x2="956" y2="252"/><text class="sy-tag" x="1052" y="232">FIT-108</text><circle id="b-FIT108" class="sy-bub" cx="1052" cy="252" r="18"/><text id="v-FIT108" class="sy-bval" x="1052" y="257">0.0</text><text class="sy-unit" x="1052" y="284">m³/h</text></g>
+    <!-- ===== BALÕES DE INSTRUMENTAÇÃO (padrão ISA) ===== -->
+    <g><line class="sy-lead" x1="130" y1="111" x2="130" y2="150"/><text class="sy-tag" x="130" y="70">FIT-101</text><circle id="b-FIT101" class="sy-bub" cx="130" cy="92" r="17"/><text id="v-FIT101" class="sy-bval" x="130" y="97">0.0</text><text class="sy-unit" x="130" y="122">m³/h</text></g>
+    <g><line class="sy-lead" x1="238" y1="111" x2="238" y2="150"/><text class="sy-tag" x="238" y="70">PIT-102</text><circle id="b-PIT102" class="sy-bub" cx="238" cy="92" r="17"/><text id="v-PIT102" class="sy-bval" x="238" y="97">0.0</text><text class="sy-unit" x="238" y="122">bar</text></g>
+    <g><line class="sy-lead" x1="560" y1="111" x2="560" y2="150"/><text class="sy-tag" x="560" y="70">TIT-104</text><circle id="b-TIT104" class="sy-bub" cx="560" cy="92" r="17"/><text id="v-TIT104" class="sy-bval" x="560" y="97">22</text><text class="sy-unit" x="560" y="122">°C</text></g>
+    <g><line class="sy-lead" x1="612" y1="111" x2="612" y2="150"/><text class="sy-tag" x="612" y="70">AIT-105</text><circle id="b-AIT105" class="sy-bub" cx="612" cy="92" r="17"/><text id="v-AIT105" class="sy-bval" x="612" y="97">150</text><text class="sy-unit" x="612" y="122">µS/cm</text></g>
+    <g><line class="sy-lead" x1="664" y1="111" x2="664" y2="150"/><text class="sy-tag" x="664" y="70">AIT-106</text><circle id="b-AIT106" class="sy-bub" cx="664" cy="92" r="17"/><text id="v-AIT106" class="sy-bval" x="664" y="97">7.2</text><text class="sy-unit" x="664" y="122">pH</text></g>
+    <g><line class="sy-lead" x1="716" y1="111" x2="716" y2="150"/><text class="sy-tag" x="716" y="70">DIT-107</text><circle id="b-DIT107" class="sy-bub" cx="716" cy="92" r="17"/><text id="v-DIT107" class="sy-bval" x="716" y="97">0.5</text><text class="sy-unit" x="716" y="122">NTU</text></g>
+    <g><line class="sy-lead" x1="1132" y1="250" x2="1026" y2="250"/><text class="sy-tag" x="1150" y="230">FIT-108</text><circle id="b-FIT108" class="sy-bub" cx="1150" cy="250" r="17"/><text id="v-FIT108" class="sy-bval" x="1150" y="255">0.0</text><text class="sy-unit" x="1150" y="280">m³/h</text></g>
   </svg>`;
 }
 
@@ -689,6 +682,8 @@ function render(){
   const ib=(tag,val,bad)=>{stx('v-'+tag,val);scl('b-'+tag,'sy-bub'+(bad?' alarm':''));scl('v-'+tag,'sy-bval'+(bad?' alarm':''));};
   ib('FIT101',fmt(S.pv.FIT101,1),o.P301&&S.pv.FIT101<10);
   ib('PIT102',fmt(S.pv.PIT102,1),S.pv.PIT102>6);
+  ib('AIT105',fmt(S.pv.AIT105,0),S.pv.AIT105>500);
+  ib('AIT106',fmt(S.pv.AIT106,2),S.pv.AIT106<6.5||S.pv.AIT106>8.5);
   ib('DIT107',fmt(S.pv.DIT107,1),S.pv.DIT107>5);
   ib('TIT104',fmt(S.pv.TIT104,0),S.pv.TIT104>35);
   ib('FIT108',fmt(S.pv.FIT108,1),false);
@@ -705,6 +700,7 @@ function tick(){
 }
 $('btnRun').onclick=()=>{S.running=true;};
 $('btnStop').onclick=()=>{S.running=false;};
+$('btnArm').onclick=()=>{S.flags={VAZAO:false,PRESSAO:false,PH:false,COND:false,TURB:false,UV:false};S.out.ALARME=false;};
 $('btnReset').onclick=()=>{
   S.running=false;S.t=0;
   S.pv={FIT101:0,PIT102:0,LIT103:60,TIT104:22,AIT105:150,AIT106:7.2,DIT107:0.5,FIT108:0};
